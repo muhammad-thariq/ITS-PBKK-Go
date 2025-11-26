@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Game & Review CRUD Tester</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0 1rem 3rem;
+      background: #f5f5f5;
+    }
+    h1, h2, h3 {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 16px 0;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+    .flex {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .flex > .card {
+      flex: 1;
+      min-width: 280px;
+    }
+    label {
+      display: block;
+      font-weight: 600;
+      margin-top: 8px;
+      margin-bottom: 4px;
+    }
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    textarea {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+    textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+    button {
+      margin-top: 10px;
+      padding: 6px 12px;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      background: #2563eb;
+      color: #fff;
+      font-weight: 600;
+    }
+    button.secondary {
+      background: #6b7280;
+    }
+    button.danger {
+      background: #ef4444;
+    }
+    .small {
+      font-size: 0.85rem;
+      color: #6b7280;
+    }
+    .status {
+      margin-top: 8px;
+      font-size: 0.9rem;
+    }
+    .status.ok {
+      color: #16a34a;
+    }
+    .status.err {
+      color: #dc2626;
+    }
+    .game {
+      border-top: 1px solid #e5e7eb;
+      padding-top: 10px;
+      margin-top: 10px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      background: #e5e7eb;
+      margin-right: 4px;
+    }
+    .reviews {
+      margin-top: 8px;
+      padding-left: 10px;
+      border-left: 2px solid #e5e7eb;
+    }
+    .review {
+      margin-bottom: 6px;
+      font-size: 0.9rem;
+    }
+    .token-box {
+      background: #0f172a;
+      color: #e5e7eb;
+      font-family: monospace;
+      font-size: 0.8rem;
+      padding: 8px;
+      border-radius: 4px;
+      margin-top: 6px;
+      word-break: break-all;
+      max-height: 80px;
+      overflow-y: auto;
+    }
+    .muted {
+      color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Game & Review CRUD Tester</h1>
+  <p class="small">
+    Backend expected at <code>http://localhost:8080/api</code> (same server as this page).
+  </p>
+
+  <!-- AUTH SECTION -->
+  <div class="flex">
+    <div class="card">
+      <h2>Register</h2>
+      <form id="registerForm">
+        <label>Name</label>
+        <input type="text" id="regName" required />
+
+        <label>Email</label>
+        <input type="email" id="regEmail" required />
+
+        <label>Password</label>
+        <input type="password" id="regPassword" required />
+
+        <button type="submit">Register</button>
+      </form>
+      <div id="registerStatus" class="status"></div>
+    </div>
+
+    <div class="card">
+      <h2>Login</h2>
+      <form id="loginForm">
+        <label>Email</label>
+        <input type="email" id="loginEmail" required />
+
+        <label>Password</label>
+        <input type="password" id="loginPassword" required />
+
+        <button type="submit">Login</button>
+      </form>
+      <div id="loginStatus" class="status"></div>
+      <div id="currentUserInfo" class="small muted"></div>
+      <div id="tokenBox" class="token-box" style="display: none;"></div>
+    </div>
+  </div>
+
+  <!-- GAME SECTION -->
+  <div class="card">
+    <h2>Create Game</h2>
+    <p class="small">
+      Requires you to be logged in (uses JWT as <code>Authorization: Bearer &lt;token&gt;</code>).
+    </p>
+    <form id="createGameForm" enctype="multipart/form-data">
+      <label>Title <span style="color:red">*</span></label>
+      <input type="text" id="gameTitle" required />
+
+      <label>Genre</label>
+      <input type="text" id="gameGenre" />
+
+      <label>Release Year</label>
+      <input type="number" id="gameReleaseYear" min="1970" max="2100" />
+
+      <label>Description</label>
+      <textarea id="gameDescription"></textarea>
+
+      <label>Cover (image, max 2MB)</label>
+      <input type="file" id="gameCover" accept="image/*" />
+
+      <button type="submit">Create Game</button>
+    </form>
+    <div id="createGameStatus" class="status"></div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h2>Games</h2>
+      <div>
+        <button id="reloadGamesBtn" type="button" class="secondary">Reload</button>
+      </div>
+    </div>
+    <div id="gamesStatus" class="status"></div>
+    <div id="gamesList"></div>
+  </div>
+</div>
+
+<script>
+  const apiBase = "/api"; // since same origin
+
+  let authToken = null;
+  let currentUser = null;
+
+  // ===== Helper To Set Status Text =====
+  function setStatus(el, msg, ok = true) {
+    el.textContent = msg || "";
+    el.className = "status " + (msg ? (ok ? "ok" : "err") : "");
+  }
+
+  // ===== AUTH: Register =====
+  const registerForm = document.getElementById("registerForm");
+  const registerStatus = document.getElementById("registerStatus");
+
+  registerForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    setStatus(registerStatus, "Registering...", true);
+
+    const payload = {
+      name: document.getElementById("regName").value.trim(),
+      email: document.getElementById("regEmail").value.trim(),
+      password: document.getElementById("regPassword").value,
+    };
+
+    try {
+      const res = await fetch(apiBase + "/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus(registerStatus, data.error || "Register failed", false);
+      } else {
+        setStatus(registerStatus, data.message || "Registered successfully", true);
+        registerForm.reset();
+      }
+    } catch (err) {
+      console.error(err);
+      setStatus(registerStatus, "Error: " + err.message, false);
+    }
+  });
+
+  // ===== AUTH: Login =====
+  const loginForm = document.getElementById("loginForm");
+  const loginStatus = document.getElementById("loginStatus");
+  const currentUserInfo = document.getElementById("currentUserInfo");
+  const tokenBox = document.getElementById("tokenBox");
+
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    setStatus(loginStatus, "Logging in...", true);
+
+    const payload = {
+      email: document.getElementById("loginEmail").value.trim(),
+      password: document.getElementById("loginPassword").value,
+    };
+
+    try {
+      const res = await fetch(apiBase + "/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus(loginStatus, data.error || "Login failed", false);
+        authToken = null;
+        currentUser = null;
+        currentUserInfo.textContent = "";
+        tokenBox.style.display = "none";
+        tokenBox.textContent = "";
+      } else {
+        authToken = data.token;
+        currentUser = data.user;
+        setStatus(loginStatus, "Login successful", true);
+        currentUserInfo.textContent = `Logged in as ${currentUser.name} (${currentUser.email})`;
+        tokenBox.style.display = "block";
+        tokenBox.textContent = data.token || "";
+      }
+    } catch (err) {
+      console.error(err);
+      setStatus(loginStatus, "Error: " + err.message, false);
+    }
+  });
+
+  // ===== GAMES: Create Game =====
+  const createGameForm = document.getElementById("createGameForm");
+  const createGameStatus = document.getElementById("createGameStatus");
+
+  createGameForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!authToken) {
+      setStatus(createGameStatus, "You must login first", false);
+      return;
+    }
+
+    const title = document.getElementById("gameTitle").value.trim();
+    if (!title) {
+      setStatus(createGameStatus, "Title is required", false);
+      return;
+    }
+
+    setStatus(createGameStatus, "Creating game...", true);
+
+    const formData = new FormData();
+    formData.append("title", title);
+    formData.append("genre", document.getElementById("gameGenre").value.trim());
+    formData.append("release_year", document.getElementById("gameReleaseYear").value);
+    formData.append("description", document.getElementById("gameDescription").value);
+
+    const fileInput = document.getElementById("gameCover");
+    if (fileInput.files && fileInput.files[0]) {
+      formData.append("cover", fileInput.files[0]);
+    }
+
+    try {
+      const res = await fetch(apiBase + "/games", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + authToken
+          // DO NOT set Content-Type manually when sending FormData
+        },
+        body: formData,
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus(createGameStatus, data.error || "Failed to create game", false);
+      } else {
+        setStatus(createGameStatus, "Game created successfully", true);
+        createGameForm.reset();
+        loadGames(); // refresh list
+      }
+    } catch (err) {
+      console.error(err);
+      setStatus(createGameStatus, "Error: " + err.message, false);
+    }
+  });
+
+  // ===== GAMES: Load & Render =====
+  const reloadGamesBtn = document.getElementById("reloadGamesBtn");
+  const gamesList = document.getElementById("gamesList");
+  const gamesStatus = document.getElementById("gamesStatus");
+
+  reloadGamesBtn.addEventListener("click", () => {
+    loadGames();
+  });
+
+  async function loadGames() {
+    setStatus(gamesStatus, "Loading games...", true);
+    gamesList.innerHTML = "";
+
+    try {
+      const res = await fetch(apiBase + "/games");
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setStatus(gamesStatus, data.error || "Failed to load games", false);
+        return;
+      }
+
+      const games = data.data || [];
+      setStatus(gamesStatus, `Loaded ${games.length} game(s)`, true);
+
+      if (games.length === 0) {
+        gamesList.innerHTML = "<p>No games yet.</p>";
+        return;
+      }
+
+      games.forEach(game => {
+        const div = document.createElement("div");
+        div.className = "game";
+
+        const uploadedByName = game.uploaded_by && game.uploaded_by.name
+          ? game.uploaded_by.name
+          : "(unknown)";
+
+        const coverInfo = game.cover
+          ? `<div class="small">Cover path: <code>${game.cover}</code></div>`
+          : `<div class="small muted">No cover uploaded</div>`;
+
+        div.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div>
+              <strong>${game.title}</strong>
+              <div class="small">
+                ID: ${game.id}
+                ${game.genre ? `<span class="badge">${game.genre}</span>` : ""}
+                ${game.release_year ? `<span class="badge">${game.release_year}</span>` : ""}
+              </div>
+              <div class="small">Uploaded by: ${uploadedByName}</div>
+              ${coverInfo}
+              <div class="small">${game.description || ""}</div>
+            </div>
+            <div>
+              <button class="danger" data-action="delete" data-id="${game.id}">Delete</button>
+            </div>
+          </div>
+          <div class="reviews">
+            <div class="small"><strong>Reviews:</strong></div>
+            <div class="reviews-list">
+              ${renderReviews(game.reviews || [])}
+            </div>
+            <div class="small" style="margin-top:6px;"><em>Add review</em> (login required)</div>
+            <form class="add-review-form" data-game-id="${game.id}">
+              <label>Rating (1-10)</label>
+              <input type="number" min="1" max="10" required />
+              <label>Body</label>
+              <textarea></textarea>
+              <button type="submit">Submit Review</button>
+            </form>
+            <div class="status small"></div>
+          </div>
+        `;
+
+        gamesList.appendChild(div);
+      });
+
+      attachGameHandlers();
+    } catch (err) {
+      console.error(err);
+      setStatus(gamesStatus, "Error: " + err.message, false);
+    }
+  }
+
+  function renderReviews(reviews) {
+    if (!reviews || reviews.length === 0) {
+      return `<div class="small muted">No reviews yet.</div>`;
+    }
+    return reviews.map(r => {
+      const userName = r.user && r.user.name ? r.user.name : "(anon)";
+      return `
+        <div class="review">
+          <strong>${r.rating}/10</strong>
+          <span class="small">by ${userName}</span>
+          ${r.body ? `<div>${r.body}</div>` : ""}
+        </div>
+      `;
+    }).join("");
+  }
+
+  function attachGameHandlers() {
+    // Delete buttons
+    const deleteButtons = gamesList.querySelectorAll("button[data-action='delete']");
+    deleteButtons.forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-id");
+        if (!authToken) {
+          alert("You must login to delete games.");
+          return;
+        }
+        if (!confirm("Delete game #" + id + "?")) return;
+
+        try {
+          const res = await fetch(apiBase + "/games/" + id, {
+            method: "DELETE",
+            headers: {
+              "Authorization": "Bearer " + authToken
+            }
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            alert("Failed to delete: " + (data.error || "unknown error"));
+          } else {
+            alert("Game deleted.");
+            loadGames();
+          }
+        } catch (err) {
+          console.error(err);
+          alert("Error: " + err.message);
+        }
+      });
+    });
+
+    // Add review forms
+    const reviewForms = gamesList.querySelectorAll(".add-review-form");
+    reviewForms.forEach(form => {
+      const gameId = form.getAttribute("data-game-id");
+      const statusEl = form.nextElementSibling; // the .status div after the form
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!authToken) {
+          setStatus(statusEl, "You must login to review", false);
+          return;
+        }
+
+        const ratingInput = form.querySelector("input[type='number']");
+        const bodyInput = form.querySelector("textarea");
+
+        const rating = parseInt(ratingInput.value, 10);
+        const body = bodyInput.value;
+
+        if (isNaN(rating) || rating < 1 || rating > 10) {
+          setStatus(statusEl, "Rating must be 1-10", false);
+          return;
+        }
+
+        setStatus(statusEl, "Submitting review...", true);
+
+        try {
+          const res = await fetch(apiBase + "/games/" + gameId + "/reviews", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer " + authToken
+            },
+            body: JSON.stringify({ rating, body })
+          });
+
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            setStatus(statusEl, data.error || "Failed to submit review", false);
+          } else {
+            setStatus(statusEl, "Review added!", true);
+            ratingInput.value = "";
+            bodyInput.value = "";
+            loadGames();
+          }
+        } catch (err) {
+          console.error(err);
+          setStatus(statusEl, "Error: " + err.message, false);
+        }
+      });
+    });
+  }
+
+  // Initial load
+  loadGames();
+</script>
+</body>
+</html>
