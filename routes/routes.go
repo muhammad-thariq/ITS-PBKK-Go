@@ -19,14 +19,17 @@ func RegisterRoutes(r *gin.Engine) {
 	api.GET("/games/:id", controllers.GetGameByID)
 	api.GET("/games/:id/reviews", controllers.GetReviewsForGame)
 
-	// Protected routes
+	// Protected
 	protected := api.Group("/")
 	protected.Use(middleware.AuthRequired())
 
-	// Game
+	// Game routes
 	protected.POST("/games", controllers.CreateGame)
 	protected.DELETE("/games/:id", controllers.DeleteGame)
 
-	// Review
+	// Review creation
 	protected.POST("/games/:id/reviews", controllers.CreateReview)
+
+	// Review deletion
+	protected.DELETE("/reviews/:reviewId", controllers.DeleteReview)
 }

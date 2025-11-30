@@ -78,3 +78,36 @@ func GetReviewsForGame(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"data": reviews})
 }
+
+// DELETE /api/games/:gameId/reviews/:reviewId
+func DeleteReview(c *gin.Context) {
+	reviewId := c.Param("reviewId")
+
+	currentUserIDVal, exists := c.Get("currentUserID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	currentUserID := currentUserIDVal.(uint)
+
+	var review models.Review
+
+	// Only need reviewId now
+	if err := config.DB.First(&review, reviewId).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Review not found"})
+		return
+	}
+
+	// Only the owner can delete
+	if review.UserID != currentUserID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You can only delete your own reviews"})
+		return
+	}
+
+	if err := config.DB.Delete(&review).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete review"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Review deleted successfully"})
+}

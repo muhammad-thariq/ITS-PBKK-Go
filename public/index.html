@@ -436,20 +436,29 @@
   }
 
   function renderReviews(reviews) {
-    if (!reviews || reviews.length === 0) {
-      return `<div class="small muted">No reviews yet.</div>`;
-    }
-    return reviews.map(r => {
-      const userName = r.user && r.user.name ? r.user.name : "(anon)";
-      return `
-        <div class="review">
-          <strong>${r.rating}/10</strong>
-          <span class="small">by ${userName}</span>
-          ${r.body ? `<div>${r.body}</div>` : ""}
-        </div>
-      `;
-    }).join("");
+  if (!reviews || reviews.length === 0) {
+    return `<div class="small muted">No reviews yet.</div>`;
   }
+
+  return reviews.map(r => {
+    const userName = r.user && r.user.name ? r.user.name : "(anon)";
+
+    return `
+      <div class="review" data-review-id="${r.id}" data-game-id="${r.game_id}">
+        <strong>${r.rating}/10</strong>
+        <span class="small">by ${userName}</span>
+        ${r.body ? `<div>${r.body}</div>` : ""}
+        
+        <button class="danger delete-review-btn"
+                data-review-id="${r.id}"
+                data-game-id="${r.game_id}">
+          Delete
+        </button>
+      </div>
+    `;
+  }).join("");
+}
+
 
   function attachGameHandlers() {
     // Delete buttons
@@ -535,6 +544,45 @@
         }
       });
     });
+
+    // Delete review buttons
+const deleteReviewButtons = gamesList.querySelectorAll(".delete-review-btn");
+
+deleteReviewButtons.forEach(btn => {
+  btn.addEventListener("click", async () => {
+    if (!authToken) {
+      alert("You must login to delete reviews.");
+      return;
+    }
+
+    const reviewId = btn.getAttribute("data-review-id");
+    const gameId = btn.getAttribute("data-game-id");
+
+    if (!confirm(`Delete review #${reviewId}?`)) return;
+
+    try {
+      const res = await fetch(`${apiBase}/reviews/${reviewId}`, {
+
+        method: "DELETE",
+        headers: {
+          "Authorization": "Bearer " + authToken
+        }
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        alert("Failed: " + (data.error || "unknown"));
+      } else {
+        alert("Review deleted.");
+        loadGames();
+      }
+    } catch (err) {
+      alert("Error: " + err.message);
+    }
+  });
+});
+
   }
 
   // Initial load
