@@ -50,7 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* PARTICLES: Z-0 (Background) 
             It sits behind everything. No pointer-events-none needed because it is behind.
         */}
-        <div id="particles-js" className="fixed top-0 left-0 w-full h-full z-0"></div>
+        <div id="particles-js" className="fixed top-0 left-0 w-full h-full z-0 bg-black"></div>
         
         <Script src="/js/particles.min.js" onLoad={initParticles} />
         <Script src="/js/stats.min.js" />
@@ -59,7 +59,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Navigation />
 
         {/* WAVE: Z-0 (Background with particles) */}
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 38" className="absolute top-[64px] left-0 w-full z-0 pointer-events-none">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 38" className="absolute top-16 left-0 w-full z-0 pointer-events-none">
           <path d="M0 34L60 38L120 1L180 23L240 30L300 12L360 24L420 12L480 19L540 37L600 10L660 21L720 23L780 1L840 24L900 3L960 19L1020 5L1080 15L1080 0L1020 0L960 0L900 0L840 0L780 0L720 0L660 0L600 0L540 0L480 0L420 0L360 0L300 0L240 0L180 0L120 0L60 0L0 0Z" fill="#ffffff" strokeLinecap="square" strokeLinejoin="bevel"/>
         </svg>
 
