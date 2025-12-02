@@ -25,11 +25,11 @@ func RegisterRoutes(r *gin.Engine) {
 
 	// Game routes
 	protected.POST("/games", controllers.CreateGame)
+	protected.PUT("/games/:id", controllers.UpdateGame)       // <--- NEW: edit game
 	protected.DELETE("/games/:id", controllers.DeleteGame)
 
-	// Review creation
+	// Review routes
 	protected.POST("/games/:id/reviews", controllers.CreateReview)
-
-	// Review deletion
+	protected.PUT("/reviews/:reviewId", controllers.UpdateReview)   // <--- NEW: edit review
 	protected.DELETE("/reviews/:reviewId", controllers.DeleteReview)
 }

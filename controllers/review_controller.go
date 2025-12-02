@@ -16,6 +16,11 @@ type CreateReviewInput struct {
 	Body   string `json:"body"`
 }
 
+type UpdateReviewInput struct {
+	Rating *int   `json:"rating"` // optional, can update rating or body or both
+	Body   *string `json:"body"`
+}
+
 // POST /api/games/:id/reviews
 func CreateReview(c *gin.Context) {
 	gameID := c.Param("id")
@@ -79,6 +84,60 @@ func GetReviewsForGame(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": reviews})
 }
 
+// PUT /api/reviews/:reviewId  (owner only)
+func UpdateReview(c *gin.Context) {
+	reviewId := c.Param("reviewId")
+
+	currentUserIDVal, exists := c.Get("currentUserID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	currentUserID := currentUserIDVal.(uint)
+
+	var review models.Review
+	if err := config.DB.First(&review, reviewId).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Review not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch review"})
+		return
+	}
+
+	if review.UserID != currentUserID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "You can only edit your own reviews"})
+		return
+	}
+
+	var input UpdateReviewInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if input.Rating != nil {
+		if *input.Rating < 1 || *input.Rating > 10 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "rating must be between 1 and 10"})
+			return
+		}
+		review.Rating = *input.Rating
+	}
+
+	if input.Body != nil {
+		review.Body = *input.Body
+	}
+
+	if err := config.DB.Save(&review).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update review"})
+		return
+	}
+
+	config.DB.Preload("User").First(&review, review.ID)
+
+	c.JSON(http.StatusOK, gin.H{"data": review})
+}
+
 // DELETE /api/games/:gameId/reviews/:reviewId
 func DeleteReview(c *gin.Context) {
 	reviewId := c.Param("reviewId")
@@ -92,9 +151,12 @@ func DeleteReview(c *gin.Context) {
 
 	var review models.Review
 
-	// Only need reviewId now
 	if err := config.DB.First(&review, reviewId).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Review not found"})
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Review not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch review"})
 		return
 	}
 
